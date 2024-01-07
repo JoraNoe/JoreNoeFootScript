@@ -19,8 +19,9 @@ echo "4. 安装 Docker"
 echo "5. 安装 Redis"
 echo "6. 安装 nginx"
 echo "7. 安装 nginx"
+echo "8. 完全删除 mysql"
 
-read -p "请输入数字 (1-7): " choice
+read -p "请输入数字 (1-8): " choice
 
 # 处理用户选择
 case $choice in
@@ -38,15 +39,16 @@ case $choice in
         sudo systemctl enable mysqld
         echo "检查运行状态"
         sudo systemctl status mysqld
+        sleep 10
         echo "开始设置密码"
         default_password=$(sudo grep 'temporary password' /var/log/mysqld.log | awk '{print $NF}')
         read -p "请输入新的MySQL密码: " new_password
         mysql_secure_installation <<EOF
 
 y
-$default_password
-$new_password
-$new_password
+'$default_password'
+'$new_password'
+'$new_password'
 y
 y
 y
@@ -143,10 +145,40 @@ EOF
         echo "退出安装脚本."
         exit 0
         ;;
+    8)
+        # 停止 MySQL 服务
+        sudo systemctl stop mysqld
+
+        # 卸载 MySQL 软件包
+        sudo yum -y remove mysql-server mysql
+
+        # 删除 MySQL 相关的文件和目录
+        sudo rm -rf /var/lib/mysql
+        sudo rm -rf /etc/my.cnf
+        sudo rm -rf /etc/my.cnf.d
+        sudo rm -rf /var/log/mysql
+
+        # 删除 MySQL 用户和组
+        sudo userdel mysql
+        sudo groupdel mysql
+
+        # 重新加载系统的 daemon
+        sudo systemctl daemon-reload
+
+        # 清理 yum 缓存
+        sudo yum clean all
+
+        sudo sed -i '/temporary password/d' /var/log/mysqld.log
+
+
+        echo "MySQL 已经成功删除并清理。"
+
+        ;;
+    
     *)
         echo "无效的选择. 退出安装脚本."
         exit 1
         ;;
 esac
 
-echo "安装完成！"
+echo "操作成功！"
