@@ -37,23 +37,74 @@ case $choice in
         sudo systemctl start mysqld
         echo "设置开机启动"
         sudo systemctl enable mysqld
-        echo "检查运行状态"
-        sudo systemctl status mysqld
-        sleep 10
+
+        # 设置密码 和 强度  
         echo "开始设置密码"
         default_password=$(sudo grep 'temporary password' /var/log/mysqld.log | awk '{print $NF}')
-        read -p "请输入新的MySQL密码: " new_password
-        mysql_secure_installation <<EOF
+        # 提示用户选择密码强度级别
+        echo "请选择密码强度级别："
+        echo "1. 无密码策略要求"
+        echo "2. 要求密码包含至少一个数字"
+        echo "3. 要求密码包含至少一个小写字母"
+        echo "4. 要求密码包含至少一个大写字母"
+        echo "5. 要求密码包含至少一个特殊字符"
+        echo "6. 要求密码长度至少为8个字符"
+        read -p "请输入数字 (1-6): " strength_choice
 
-y
-'$default_password'
-'$new_password'
-'$new_password'
-y
-y
-y
-y
-EOF
+        # 处理用户选择
+        case $strength_choice in
+            1)
+                policy=0
+                ;;
+            2)
+                policy=1
+                ;;
+            3)
+                policy=2
+                ;;
+            4)
+                policy=3
+                ;;
+            5)
+                policy=4
+                ;;
+            6)
+                policy=5
+                ;;
+            *)
+                echo "无效的选择. 默认密码强度设置为 无密码策略要求"
+                policy=0
+                ;;
+        esac
+
+        read -p "选择密码长度 (6-32): " strength_choice
+
+        # 处理用户选择
+        case $strength_choice in
+            6)
+                size=6
+                ;;
+            8)
+                size=8
+                ;;
+            32)
+                size=32
+                ;;
+            *)
+                echo "无效的选择. 默认密码强度设置为 6 "
+                size=6
+                ;;
+        esac
+
+        # 设置密码强度
+        echo "设置密码长度为 $size"
+
+        sudo mysql --connect-expired-password -uroot -p"$default_password" -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'JoreNoe123$%^';SET GLOBAL validate_password.policy=$policy;set global validate_password.length=$size;flush privileges;"
+        
+        # 开启建表权限
+        echo "开启建表权限"
+        mysql -uroot -p"JoreNoe123$%^" -e "create user 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'JoreNoe123$%^';FLUSH PRIVILEGES;GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+        echo "建表权限已开启"
 
         # 提示用户选择是否区分大小写
         echo "请选择是否区分大小写："
@@ -83,46 +134,11 @@ EOF
                 ;;
         esac
 
-        echo "请选择密码强度级别："
-        echo "1. 无密码策略要求"
-        echo "2. 要求密码包含至少一个数字"
-        echo "3. 要求密码包含至少一个小写字母"
-        echo "4. 要求密码包含至少一个大写字母"
-        echo "5. 要求密码包含至少一个特殊字符"
-        echo "6. 要求密码长度至少为8个字符"
-        read -p "请输入数字 (1-6): " strength_choice
+        
+        # 设置新密码
+        read -p "请输入新的MySQL密码: " new_password
+        mysql -uroot -p"JoreNoe123$%^" -e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$new_password';"
 
-        # 处理用户选择
-        case $strength_choice in
-            1)
-                echo "设置密码强度为 无密码策略要求"
-                sudo mysql -uroot -p"$new_password" -e "set global validate_password.policy=0;"
-                ;;
-            2)
-                echo "设置密码强度为 要求密码包含至少一个数字"
-                sudo mysql -uroot -p"$new_password" -e "set global validate_password.policy=1;"
-                ;;
-            3)
-                echo "设置密码强度为 要求密码包含至少一个小写字母"
-                sudo mysql -uroot -p"$new_password" -e "set global validate_password.policy=2;"
-                ;;
-            4)
-                echo "设置密码强度为 要求密码包含至少一个大写字母"
-                sudo mysql -uroot -p"$new_password" -e "set global validate_password.policy=3;"
-                ;;
-            5)
-                echo "设置密码强度为 要求密码包含至少一个特殊字符"
-                sudo mysql -uroot -p"$new_password" -e "set global validate_password.policy=4;"
-                ;;
-            6)
-                echo "设置密码强度为 要求密码长度至少为8个字符"
-                sudo mysql -uroot -p"$new_password" -e "set global validate_password.policy=5;"
-                ;;
-            *)
-                echo "无效的选择. 默认密码强度设置为 无密码策略要求"
-                sudo mysql -uroot -p"$new_password" -e "set global validate_password.policy=0;"
-                ;;
-        esac
 
         # 允许远程访问
         echo "允许远程访问在端口3306"
@@ -134,16 +150,31 @@ EOF
         echo "重启MySQL服务"
         sudo systemctl restart mysqld
 
+        echo "检查运行状态"
+        sudo systemctl status mysqld
+
         echo "MySQL安装完成，并已设置密码、密码强度，允许远程访问。"
+        echo "默认密码为：JoreNoe123$%^"
 
         ;;
-    2)
-        echo "开始安装 软件包2..."
-        sudo yum install -y software_package2
+    4)
+        echo "开始安装 docker "
+        sudo yum update
+        sudo yum install -y docker
+        sudo systemctl start docker
+        sudo systemctl enable docker
+        sudo systemctl status docker
+        echo "docker 安装成功并且开机启动"
         ;;
-    3)
-        echo "退出安装脚本."
-        exit 0
+    2)
+    echo "开始安装 sqlserver 2019  "
+        sudo curl -o /etc/yum.repos.d/mssql-server.repo https://packages.microsoft.com/config/rhel/7/mssql-server-2019.repo
+        sudo yum install -y mssql-server
+        sudo /opt/mssql/bin/mssql-conf setup
+        systemctl status mssql-server
+        sudo firewall-cmd --zone=public --add-port=1433/tcp --permanent
+        sudo firewall-cmd --reload
+        systemctl enable mssql-server.service
         ;;
     8)
         # 停止 MySQL 服务
